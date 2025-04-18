@@ -1,2 +1,2 @@
 ## Pygame Practice
-I have always being amazed by video games. I want to start by learning the basic concepts around this field, and pygame is a good option, before switching to advanced engines like Godot, Unity or Unreal
+I have always being amazed by video games. I want to start by learning the basic concepts around this field, and pygame is a good option, before switching to advanced engines like Godot, Unity or Unreal.
