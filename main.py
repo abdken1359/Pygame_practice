@@ -2,6 +2,26 @@ import pygame
 from sys import exit
 from random import randint
 import types
+#Player class 
+class Player(pygame.sprite.Sprite):
+    def __init__(self, *groups):
+        super().__init__(*groups)
+        self.image=pygame.image.load("UltimatePygameIntro/graphics/Player/player_walk_1.png").convert_alpha()
+        self.rect=self.image.get_rect(midbottom=(200,300))
+        self.gravity=0
+    def player_input(self):
+        keys=pygame.key.get_pressed()
+        if keys[pygame.K_SPACE] and self.rect.bottom>300:
+            self.gravity-=20
+    def apply_gravity(self):
+        self.gravity+=1
+        self.rect.y+=self.gravity
+        if self.rect.bottom>=300:
+            self.rect.bottom=300
+            
+    def update(self):
+        self.player_input()
+        self.apply_gravity()
 def display_time():
     current_time=pygame.time.get_ticks() - start_time
     #start_time+=current_time
@@ -18,7 +38,7 @@ def obstacle_mouvement(obstacle_list):
                 
                 screen.blit(snail_surface,obstacle_rect)
             else:
-                screen.blit(fly_surface,obstacle_rect)
+                screen.blit(fly_real_surf,obstacle_rect)
         obstacle_list=[obstacle_rect for obstacle_rect in obstacle_list if obstacle_rect.x>-100]
         return obstacle_list
     else:
@@ -36,6 +56,15 @@ def player_animation():
         player_index+=0.1
         if player_index>len(player_walk): player_index=0
         player_real_surf=player_walk[int(player_index)]
+"""def snail_animation():
+    global snail_real_surf,snail_index
+    if player_rect.bottom<300:
+        player_real_surf=player_jump
+    else:
+        player_index+=0.1
+        if player_index>len(player_walk): player_index=0
+        player_real_surf=player_walk[int(player_index)]
+        """
 pygame.init()
 screen = pygame.display.set_mode((800, 400))
 clock = pygame.time.Clock()
@@ -44,17 +73,22 @@ clock = pygame.time.Clock()
 sky_surface = pygame.image.load("UltimatePygameIntro/graphics/Sky.png").convert()
 ground_surface = pygame.image.load("UltimatePygameIntro/graphics/ground.png").convert()
 test_font = pygame.font.Font("fonts/Press_Start_2P/PressStart2P-Regular.ttf", 20)
-
+jump_sound=pygame.mixer.Sound("UltimatePygameIntro/audio/jump.mp3")
 
 # Snail
 snail_surface = pygame.image.load("UltimatePygameIntro/graphics/snail/snail1.png").convert_alpha()
 snail_surface_2 = pygame.image.load("UltimatePygameIntro/graphics/snail/snail2.png").convert_alpha()
 snail_frame=[snail_surface,snail_surface_2]
-snail_rect = snail_surface.get_rect(midbottom=(600, 300))
+snail_index=0
+snail_real_surf=snail_frame[snail_index]
+snail_rect = snail_real_surf.get_rect(midbottom=(600, 300))
 #Fly 
 fly_surface=pygame.image.load("UltimatePygameIntro/graphics/Fly/Fly1.png")
 fly_surface_2=pygame.image.load("UltimatePygameIntro/graphics/Fly/Fly2.png")
+
 fly_frame=[fly_surface,fly_surface_2]
+fly_index=0
+fly_real_surface=fly_frame[fly_index]
 obstacle_list=[]
 
 # Player
@@ -81,10 +115,19 @@ press_enter_rect=press_enter_text.get_rect(center=(400,350))
 game_active=False
 start_time=0
 score=0
+bg_music=pygame.mixer.Sound("UltimatePygameIntro/audio/music.wav")
+player=pygame.sprite.GroupSingle()
+player.add(Player())
 
-#Obstacle
+#Timers
 obstacle_timer=pygame.USEREVENT+1
 pygame.time.set_timer(obstacle_timer,1500)
+
+snail_animation_timer=pygame.USEREVENT+2
+pygame.time.set_timer(snail_animation_timer,1500)
+
+fly_animation_timer=pygame.USEREVENT +3
+pygame.time.set_timer(fly_animation_timer,500)
 while True:
    
     for event in pygame.event.get():
@@ -99,13 +142,23 @@ while True:
             if event.key==pygame.K_RETURN and game_active==False:
                 game_active=True
                 player_rect.bottom=300
-                
+                bg_music.play(-1)
                 start_time=pygame.time.get_ticks()
-        if event.type==obstacle_timer and game_active:
-            if randint(0,2):
-                    obstacle_list.append(snail_surface.get_rect(midbottom=(randint(900,1100), 300)))
-            else:
-                obstacle_list.append(fly_surface.get_rect(midbottom=(randint(900,1100), 210)))
+       # if event.type==obstacle_timer and game_active:
+            #if randint(0,2):
+           #         obstacle_list.append(snail_surface.get_rect(midbottom=(randint(900,1100), 300)))
+           # else:
+              #  obstacle_list.append(fly_real_surface.get_rect(midbottom=(randint(900,1100), 210)))
+        if game_active:
+            if event.type==snail_animation_timer:
+                if snail_index==0:snail_index=1
+                else:snail_index=0
+                snail_real_surf=snail_frame[snail_index]
+            if event.type==fly_animation_timer:
+                if fly_index==0:fly_index=1
+                else:fly_index=0
+                fly_real_surf=fly_frame[fly_index]
+                
     if game_active:
         score = display_time()
         
@@ -119,12 +172,13 @@ while True:
         snail_rect.right -= 10
         if snail_rect.right < -100:
             snail_rect.right = 800
-        screen.blit(snail_surface, snail_rect)
+        screen.blit(snail_real_surf, snail_rect)
 
         # Player input
         keys = pygame.key.get_pressed()
         if keys[pygame.K_SPACE] and player_rect.bottom >= 300:
             player_gravity = -20  # Jump force
+            jump_sound.play()
         
         
         # Gravity
@@ -137,15 +191,19 @@ while True:
             player_rect.bottom = 300
             player_gravity = 0
         #Obstacle mpuvement
-       # obstacle_rect_list = obstacle_mouvement(obstacle_list)
-        #game_active=collisions(player_rect,obstacle_rect_list)
+        obstacle_rect_list = obstacle_mouvement(obstacle_list)
+        game_active=collisions(player_rect,obstacle_rect_list)
         # Collision
         if player_rect.colliderect(snail_rect):
            game_active=False
            
         screen.blit(player_real_surf, player_rect)
+       # player.draw(screen)
+        #player.update()
         display_time()
+       
     else:
+       
         score_message=test_font.render(f"Your score is : {score}",True,(111,196,169))
         score_rect=score_message.get_rect(center=(400,350))
         snail_rect.right=0
